@@ -17,7 +17,7 @@ namespace BAlg::Algorithms
 
 		namespace {
 			template <size_t blockSize, typename F, typename R>
-			__device__ void warpReduce(volatile R* sdata, size_t tid, F fun) {
+			__device__ void warpReduce(volatile R* sdata, const size_t tid, const F fun) {
 				if (blockSize >= 64) sdata[tid] = fun(sdata[tid], sdata[tid + 32]);
 				if (blockSize >= 32) sdata[tid] = fun(sdata[tid], sdata[tid + 16]);
 				if (blockSize >= 16) sdata[tid] = fun(sdata[tid], sdata[tid + 8]);
@@ -28,12 +28,12 @@ namespace BAlg::Algorithms
 
 			// source: https://developer.download.nvidia.com/assets/cuda/files/reduction.pdf
 			template <typename T, size_t blockSize, typename F, typename R>
-			__global__ void reduce(T* g_idata, R* g_odata, size_t n, F fun) {
+			__global__ void reduce(const T* g_idata, R* g_odata, const size_t n, const F fun, const R identityElement) {
 				extern __shared__ R sdata[];
 				size_t tid = threadIdx.x;
 				size_t i = blockIdx.x * (blockSize * 2) + tid;
 				size_t gridSize = blockSize * 2 * gridDim.x;
-				sdata[tid] = 0;
+				sdata[tid] = identityElement;
 				while (i < n) { sdata[tid] = fun(sdata[tid], fun((R)g_idata[i], (R)g_idata[i + blockSize])); i += gridSize; }
 				__syncthreads();
 				if (blockSize >= 512) { if (tid < 256) { sdata[tid] = fun(sdata[tid], sdata[tid + 256]); } __syncthreads(); }
@@ -47,9 +47,11 @@ namespace BAlg::Algorithms
                 }
 			}
 
-            template <typename T, typename F, typename R = T>
-            R reduceDevice(T in[], size_t count, F fun)
+            template <typename T, typename F, typename R>
+            R reduceDevice(const T in[], const size_t count, const F fun, const R identityElement)
             {
+                if (count == 0) return identityElement;
+
                 int device;
                 cudaGetDevice(&device);
                 cudaDeviceProp props{};
@@ -58,7 +60,7 @@ namespace BAlg::Algorithms
                 // explanation: http://selkie.macalester.edu/csinparallel/modules/CUDAArchitecture/build/html/2-Findings/Findings.html
                 // (bottom of the page)
 
-                auto threadsTheory = (double)count / log2((double)count);
+                auto threadsTheory = (double)count / std::max(1.0, log2((double)count));
 
                 auto threadsPerBlockTheory = sqrt(threadsTheory);
 
@@ -86,25 +88,25 @@ namespace BAlg::Algorithms
                 switch (threadsPerBlock)
                 {
                     case 512:
-                        reduce<T, 512, F, R> <<< dimGrid, dimBlock, smemSize >>> (in, result, count, fun); break;
+                        reduce<T, 512, F, R> <<< dimGrid, dimBlock, smemSize >>> (in, result, count, fun, identityElement); break;
                     case 256:
-                        reduce<T, 256, F, R> <<< dimGrid, dimBlock, smemSize >>> (in, result, count, fun); break;
+                        reduce<T, 256, F, R> <<< dimGrid, dimBlock, smemSize >>> (in, result, count, fun, identityElement); break;
                     case 128:
-                        reduce<T, 128, F, R> <<< dimGrid, dimBlock, smemSize >>> (in, result, count, fun); break;
+                        reduce<T, 128, F, R> <<< dimGrid, dimBlock, smemSize >>> (in, result, count, fun, identityElement); break;
                     case 64:
-                        reduce<T, 64, F, R> <<< dimGrid, dimBlock, smemSize >>> (in, result, count, fun); break;
+                        reduce<T, 64, F, R> <<< dimGrid, dimBlock, smemSize >>> (in, result, count, fun, identityElement); break;
                     case 32:
-                        reduce<T, 32, F, R> <<< dimGrid, dimBlock, smemSize >>> (in, result, count, fun); break;
+                        reduce<T, 32, F, R> <<< dimGrid, dimBlock, smemSize >>> (in, result, count, fun, identityElement); break;
                     case 16:
-                        reduce<T, 16, F, R> <<< dimGrid, dimBlock, smemSize >>> (in, result, count, fun); break;
+                        reduce<T, 16, F, R> <<< dimGrid, dimBlock, smemSize >>> (in, result, count, fun, identityElement); break;
                     case 8:
-                        reduce<T, 8, F, R> <<< dimGrid, dimBlock, smemSize >>> (in, result, count, fun); break;
+                        reduce<T, 8, F, R> <<< dimGrid, dimBlock, smemSize >>> (in, result, count, fun, identityElement); break;
                     case 4:
-                        reduce<T, 4, F, R> <<< dimGrid, dimBlock, smemSize >>> (in, result, count, fun); break;
+                        reduce<T, 4, F, R> <<< dimGrid, dimBlock, smemSize >>> (in, result, count, fun, identityElement); break;
                     case 2:
-                        reduce<T, 2, F, R> <<< dimGrid, dimBlock, smemSize >>> (in, result, count, fun); break;
+                        reduce<T, 2, F, R> <<< dimGrid, dimBlock, smemSize >>> (in, result, count, fun, identityElement); break;
                     case 1:
-                        reduce<T, 1, F, R> <<< dimGrid, dimBlock, smemSize >>> (in, result, count, fun); break;
+                        reduce<T, 1, F, R> <<< dimGrid, dimBlock, smemSize >>> (in, result, count, fun, identityElement); break;
                 }
 
                 cudaError_t cudaStatus;
@@ -123,7 +125,7 @@ namespace BAlg::Algorithms
 
                 if (dimGrid.x != 1)
                 {
-                    auto ret = reduceDevice(result, dimGrid.x, fun);
+                    auto ret = reduceDevice<T, F, R>(result, dimGrid.x, fun, identityElement);
                     cudaFree(result);
                     return ret;
                 }
@@ -140,7 +142,7 @@ namespace BAlg::Algorithms
 		}
 
 		template <typename T, typename F, typename R = T>
-		R reduce(T arr[], size_t count, F fun)
+		R reduce(const T arr[], const size_t count, const F fun, const R identityElement = 0)
 		{
 			R* result;
             T* input;
@@ -149,7 +151,7 @@ namespace BAlg::Algorithms
 
 			cudaMemcpy(input, arr, count * sizeof(T), cudaMemcpyHostToDevice);
 
-            auto returnVal = reduceDevice<T, F, R>(input, count, fun);
+            auto returnVal = reduceDevice<T, F, R>(input, count, fun, identityElement);
 
 			cudaFree(result);
 			cudaFree(input);
@@ -158,7 +160,7 @@ namespace BAlg::Algorithms
 		}
 
 		template <typename T, typename R = T>
-		R reduce(T arr[], size_t count, Operation op)
+		R reduce(const T arr[], const size_t count, Operation op)
 		{
             auto addition = [=]__device__(R x, R y) { return x + y; };
             auto multiplication = [=]__device__(R x, R y) { return x * y; };
@@ -166,10 +168,10 @@ namespace BAlg::Algorithms
 			switch (op)
 			{
 			case Operation::ADD:
-                return reduce<T, decltype(addition), R>(arr, count, addition);
+                return reduce<T, decltype(addition), R>(arr, count, addition, 0);
 			case Operation::MUL:
                 break;
 			}
-            return reduce<T, decltype(multiplication), R>(arr, count, multiplication);
+            return reduce<T, decltype(multiplication), R>(arr, count, multiplication, 1);
 		}
 	}
