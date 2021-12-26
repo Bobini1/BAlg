@@ -62,7 +62,7 @@ namespace BAlg::Algorithms
 
                 auto threadsTheory = (double)count / std::max(1.0, log2((double)count));
 
-                auto threadsPerBlockTheory = sqrt(threadsTheory);
+                auto threadsPerBlockTheory = std::min((double)props.sharedMemPerBlock / sizeof(R), sqrt(threadsTheory));
 
                 size_t threadsPerBlock = std::max(1l, std::min(lround(pow(2, ceil(log2(threadsPerBlockTheory)))), 512l));
 
