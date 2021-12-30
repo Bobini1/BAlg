@@ -8,11 +8,14 @@
 #include <cstddef>
 #include <array>
 #include <memory>
+#include "Algorithms/Algorithms.h"
 
 namespace BAlg::DataStructures {
     template<typename T, std::size_t firstDim, std::size_t... dims>
     struct NdArrayCommonBase {
         static constexpr size_t elements = firstDim * (dims * ... * 1);
+
+        virtual T* getMemoryStart() const = 0;
 
     public:
         [[nodiscard]] constexpr std::size_t elementCount() const {
@@ -26,6 +29,16 @@ namespace BAlg::DataStructures {
         [[nodiscard]] constexpr std::size_t size() const {
             return firstDim;
         }
+
+        template<typename R = T>
+        R sum() const {
+            return Algorithms::reduce<T, R>(getMemoryStart(), elements, Algorithms::Operation::ADD);
+        }
+
+        template<typename R = T>
+        R product() const {
+            return Algorithms::reduce<T, R>(getMemoryStart(), elements, Algorithms::Operation::MUL);
+        }
     };
 
     template<typename T, std::size_t firstDim, std::size_t... dims>
@@ -38,6 +51,10 @@ namespace BAlg::DataStructures {
     class NdArrayRefBase : public NdArrayCommonBase<T, firstDim, dims...>
     {
         using Base = NdArrayCommonBase<T, firstDim, dims...>;
+
+        T* getMemoryStart() const override {
+            return memoryStart;
+        }
     protected:
         T* memoryStart;
         using Base::elements;
@@ -74,6 +91,10 @@ namespace BAlg::DataStructures {
     class NdArrayBase : public NdArrayCommonBase<T, firstDim, dims...>
     {
         using Base = NdArrayCommonBase<T, firstDim, dims...>;
+
+        T* getMemoryStart() const override {
+            return data.get();
+        }
     protected:
         std::shared_ptr<T[]> data;
         explicit NdArrayBase(T* memoryStart) : data(std::make_unique<T[]>(elements))
@@ -143,7 +164,7 @@ namespace BAlg::DataStructures {
 
         NdArray(const NdArray& array) : Base(array) {}
 
-        NdArray(NdArray&& array) noexcept : Base(array) {}
+        NdArray(NdArray&& array) noexcept : Base(std::move(array)) {}
 
         NdArrayRef<T, dims...> operator[](std::size_t index) {
             return NdArrayRef<T, dims...>(this->data.get() + index * (dims * ... * 1));
@@ -220,7 +241,7 @@ namespace BAlg::DataStructures {
 
         NdArray(const NdArray& array) : Base(array) {}
 
-        NdArray(NdArray&& array) noexcept : Base(array) {}
+        NdArray(NdArray&& array) noexcept : Base(std::move(array)) {}
 
         T& operator[](std::size_t index) {
             if (index >= firstDim) {

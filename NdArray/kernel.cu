@@ -1,5 +1,5 @@
 ﻿
-#include "Algorithms.cuh"
+#include "Algorithms/Algorithms.h"
 #include "NdArrayFlex.h"
 #include <iostream>
 #include "NdArrayVariadic.h"
