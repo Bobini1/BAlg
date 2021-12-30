@@ -7,11 +7,13 @@ set(CMAKE_CXX_STANDARD 20)
 
 include_directories(NdArray)
 
+add_subdirectory(Boost_tests)
+
 add_executable(BAlg
         NdArray/Algorithms.cu
         NdArray/Algorithms.cuh
         NdArray/kernel.cu
-        NdArray/NdArray.cuh NdArray/NdArray.cu NdArray/Shape.h NdArray/Shape.cpp)
+        NdArray/NdArrayFlex.h NdArray/NdArrayFlex.cpp NdArray/Shape.h NdArray/Shape.cpp NdArray/NdArrayVariadic.h NdArray/NdArrayVariadic.cpp Boost_tests/test1.cpp)
 
 set_target_properties(BAlg PROPERTIES
         CUDA_SEPARABLE_COMPILATION ON)

@@ -28,9 +28,8 @@ public:
     Shape(std::initializer_list<std::size_t> shape)
     {
         std::copy(shape.begin(), shape.end(), this->shape.begin());
-        this->shape[shapeDims-1] = 1;
 
-        strides[shapeDims-1] = 1;
+        strides[shapeDims-1] = this->shape[shapeDims-1];
         for (std::size_t i = shapeDims-2; i != SIZE_MAX; i--)
         {
             strides[i] = strides[i+1] * this->shape[i];
@@ -41,21 +40,26 @@ public:
     {
         return shape[index];
     }
-    std::size_t strideAt(std::size_t index) const
+    [[nodiscard]] std::size_t strideAt(std::size_t index) const
     {
         return strides[index];
     };
-    std::size_t size() const
+    [[nodiscard]] std::size_t size() const
     {
         return shape.size();
     }
-    std::size_t elementCount() const
+    [[nodiscard]] std::size_t elementCount() const
     {
         return totalSize;
     }
     Shape<shapeDims-1> subShape() const
     {
         return Shape<shapeDims-1>(*this);
+    }
+
+    [[nodiscard]] std::size_t firstDimSize() const
+    {
+        return shape[0];
     }
 
     Shape() = default;

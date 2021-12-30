@@ -1,26 +1,30 @@
 ﻿
 #include "Algorithms.cuh"
-#include "NdArray.cuh"
+#include "NdArrayFlex.h"
 #include <iostream>
+#include "NdArrayVariadic.h"
+
+using namespace BAlg::DataStructures;
 
 int main()
 {
-    /**auto* arr = new double[1000];
-    for (int i = 0; i < 1000; i++)
-    {
-        arr[i] = i + 1;
-    }**/
+    NdArray<float, 5> zzz;
 
-    BAlg::DataStructures::NdArray<std::string, 3> test({2, 4, 6});
-    test[0][1][2] = "zzz";
-    BAlg::DataStructures::NdArray<std::string, 2> test2 = test[0];
-    BAlg::DataStructures::NdArray<std::string, 1> test3 = test[0][1];
-    test3[2] = "aaa";
-    std::string x = test[0][1][2];
+    zzz[0] = 1;
 
-    std::cout << x << std::endl << test3[2];
-    
-    //std::cout << BAlg::Algorithms::reduce(arr, 100, BAlg::Algorithms::Operation::ADD) << std::endl;
+    NdArray<float, 5, 10> zzz2;
+
+    zzz2[0][0] = 1;
+
+    auto copying = zzz2[0];
+
+    auto x = zzz2[0];
+
+    auto y = zzz2[0][0];
+
+    x[0] = 2;
+
+    std::cout << zzz2[0][0] << std::endl;
 
     return 0;
 }
