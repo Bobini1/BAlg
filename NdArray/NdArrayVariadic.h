@@ -176,7 +176,7 @@ namespace BAlg::DataStructures {
         friend
         class NdArrayRef;
 
-        NdArrayRef(T* memoryStart) : Base(memoryStart) {}
+        explicit NdArrayRef(T* memoryStart) : Base(memoryStart) {}
     public:
         ~NdArrayRef() = default;
 
