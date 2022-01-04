@@ -24,7 +24,9 @@ namespace BAlg::Algorithms
     // source: https://developer.download.nvidia.com/assets/cuda/files/reduction.pdf
     template <typename T, size_t blockSize, typename F, typename R>
     __global__ void reduce(const T* g_idata, R* g_odata, const size_t n, F fun, R identityElement) {
-        extern __shared__ R sdata[];
+        alignas(sizeof(R)) extern __shared__ unsigned char sdata_u[];
+        R* sdata = reinterpret_cast<R*>(sdata_u);
+
         size_t tid = threadIdx.x;
         size_t i = blockIdx.x * (blockSize * 2) + tid;
         size_t gridSize = blockSize * 2 * gridDim.x;
@@ -38,7 +40,6 @@ namespace BAlg::Algorithms
         if (tid == 0)
         {
             g_odata[blockIdx.x] = sdata[0];
-            //printf("%ld", fun(100, 200));
         }
     }
 
@@ -54,6 +55,7 @@ namespace BAlg::Algorithms
 
         // explanation: http://selkie.macalester.edu/csinparallel/modules/CUDAArchitecture/build/html/2-Findings/Findings.html
         // (bottom of the page)
+        static constexpr double multiplier = 10.0;
 
         auto threadsTheory = (double)count / std::max(1.0, log2((double)count));
 
@@ -61,11 +63,7 @@ namespace BAlg::Algorithms
 
         size_t threadsPerBlock = std::max(1l, std::min(lround(pow(2, ceil(log2(threadsPerBlockTheory)))), 512l));
 
-        auto blocksTheory = threadsPerBlockTheory;
-
-        auto elemsPerThread = (size_t)ceil((double)count / ((double)threadsPerBlock * blocksTheory));
-
-        size_t gridSize = count / (threadsPerBlock * elemsPerThread) + ((count % (threadsPerBlock * elemsPerThread) != 0) ? 1 : 0);
+        auto gridSize = count / threadsPerBlock + ((count % threadsPerBlock != 0) ? 1 : 0);
 
         if (gridSize > (size_t)props.maxGridSize[0]) throw std::runtime_error("Grid size too large");
 
@@ -76,6 +74,8 @@ namespace BAlg::Algorithms
         if (smemSize > (size_t)props.sharedMemPerBlock) throw std::runtime_error("Shared memory too large");
 
         if (threadsPerBlock > (size_t)props.maxThreadsPerBlock) throw std::runtime_error("Too many threads per block");
+
+
 
         R* result;
         cudaMalloc(&result, dimGrid.x * sizeof(R));
@@ -120,7 +120,7 @@ namespace BAlg::Algorithms
 
         if (dimGrid.x != 1)
         {
-            auto ret = reduceDevice<T, F, R>(result, dimGrid.x, fun, identityElement);
+            auto ret = reduceDevice<R, F, R>(result, dimGrid.x, fun, identityElement);
             cudaFree(result);
             return ret;
         }

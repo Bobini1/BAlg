@@ -8,23 +8,20 @@ using namespace BAlg::DataStructures;
 
 int main()
 {
-    NdArray<float, 5> zzz;
+    using namespace BAlg::DataStructures;
+    NdArray<unsigned char, 20, 20> testArray;
+    size_t actualSum = 0;
+    for (size_t i = 0; i < 20; i++)
+    {
+        for (size_t j = 0; j < 20; j++)
+        {
+            testArray[i][j] = i * j;
+            actualSum += i * j;
+        }
+    }
+    auto sum = testArray.sum<size_t>();
 
-    zzz[0] = 1;
-
-    NdArray<float, 5, 10> zzz2;
-
-    zzz2[0][0] = 1;
-
-    auto copying = zzz2[0];
-
-    auto x = zzz2[0];
-
-    auto y = zzz2[0][0];
-
-    x[0] = 2;
-
-    std::cout << zzz2[0][0] << std::endl;
+    std::cout << sum << " " << actualSum << std::endl;
 
     return 0;
 }

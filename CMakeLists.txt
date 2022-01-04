@@ -17,4 +17,4 @@ add_executable(BAlg
 set_target_properties(BAlg PROPERTIES
         CUDA_SEPARABLE_COMPILATION ON)
 
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --extended-lambda")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --extended-lambda --expt-relaxed-constexpr")

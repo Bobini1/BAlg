@@ -6,6 +6,7 @@
 #define BOOST_TEST_MAIN  // in only one cpp file
 #include <boost/test/unit_test.hpp>
 #include "NdArrayVariadic.h"
+#include <boost/multiprecision/cpp_int.hpp>
 
 BOOST_AUTO_TEST_CASE(trueCheck)
 {
@@ -130,4 +131,38 @@ BOOST_AUTO_TEST_CASE(ProductOfArrayElements)
     }
     auto product = testArray.product();
     BOOST_CHECK_EQUAL(product, actualProduct);
+}
+
+BOOST_AUTO_TEST_CASE(sumOfElementsStressTest)
+{
+    using namespace BAlg::DataStructures;
+    NdArray<size_t, 200, 200> testArray;
+    size_t actualSum = 0;
+    for (size_t i = 0; i < 200; i++)
+    {
+        for (size_t j = 0; j < 200; j++)
+        {
+            testArray[i][j] = i * j;
+            actualSum += i * j;
+        }
+    }
+    auto sum = testArray.sum();
+    BOOST_CHECK_EQUAL(sum, actualSum);
+}
+
+BOOST_AUTO_TEST_CASE(CustomReturnType)
+{
+    using namespace BAlg::DataStructures;
+    NdArray<unsigned char, 20, 20> testArray;
+    size_t actualSum = 0;
+    for (size_t i = 0; i < 20; i++)
+    {
+        for (size_t j = 0; j < 20; j++)
+        {
+            testArray[i][j] = i * j;
+            actualSum += i * j;
+        }
+    }
+    auto sum = testArray.sum<size_t>();
+    BOOST_CHECK_EQUAL(sum, actualSum);
 }
