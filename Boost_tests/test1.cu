@@ -143,7 +143,7 @@ BOOST_AUTO_TEST_CASE(sumOfElementsStressTest)
         for (size_t j = 0; j < 200; j++)
         {
             testArray[i][j] = i * j;
-            actualSum += i * j;
+            actualSum += testArray[i][j];
         }
     }
     auto sum = testArray.sum();
@@ -160,9 +160,75 @@ BOOST_AUTO_TEST_CASE(CustomReturnType)
         for (size_t j = 0; j < 20; j++)
         {
             testArray[i][j] = i * j;
-            actualSum += i * j;
+            actualSum += testArray[i][j];
         }
     }
     auto sum = testArray.sum<size_t>();
     BOOST_CHECK_EQUAL(sum, actualSum);
 }
+
+struct B
+{
+    constexpr explicit B(size_t i) : i(i) {}
+    size_t i;
+    constexpr B operator+(const B& other) const
+    {
+        return B(i + other.i);
+    }
+    constexpr B& operator+=(const B& other)
+    {
+        i += other.i;
+        return *this;
+    }
+    constexpr explicit operator size_t() const
+    {
+        return i;
+    }
+    constexpr bool operator== (const B& other) const
+    {
+        return i == other.i;
+    }
+    constexpr B(const B&) = default;
+    constexpr B& operator=(const B& other) = default;
+
+    friend std::ostream& operator<<(std::ostream& os, const B& b)
+    {
+        os << b.i;
+        return os;
+    }
+};
+
+BOOST_AUTO_TEST_CASE(CustomReturnTypeUserType)
+{
+    using namespace BAlg::DataStructures;
+    NdArray<unsigned char, 20, 20> testArray;
+    B actualSum = B{0};
+    for (size_t i = 0; i < 20; i++)
+    {
+        for (size_t j = 0; j < 20; j++)
+        {
+            testArray[i][j] = i * j;
+            actualSum += B(testArray[i][j]);
+        }
+    }
+    auto sum = testArray.sum<B>();
+    BOOST_CHECK_EQUAL(sum, actualSum);
+}
+
+BOOST_AUTO_TEST_CASE(CustomReturnTypeMultiprecision)
+{
+    using namespace BAlg::DataStructures;
+    NdArray<unsigned char, 20, 20> testArray;
+    boost::multiprecision::uint128_t actualSum = 0;
+    for (size_t i = 0; i < 20; i++)
+    {
+        for (size_t j = 0; j < 20; j++)
+        {
+            testArray[i][j] = i * j;
+            actualSum += testArray[i][j];
+        }
+    }
+    auto sum = testArray.sum<boost::multiprecision::uint128_t>();
+    BOOST_CHECK_EQUAL(sum, actualSum);
+}
+

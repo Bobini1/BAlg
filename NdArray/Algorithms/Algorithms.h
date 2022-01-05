@@ -7,10 +7,10 @@
 
 namespace BAlg::Algorithms
 	{
-		enum class Operation
-		{
-			ADD, MUL
-		};
+        enum class Operation
+        {
+            ADD, MUL
+        };
 
 		template <typename T, typename F, typename R = T>
 		R reduce(const T arr[], const size_t count, F fun, R identityElement = 0)
@@ -30,19 +30,24 @@ namespace BAlg::Algorithms
 			return returnVal;
 		}
 
-		template <typename T, typename R = T>
-		R reduce(const T arr[], const size_t count, Operation op)
+		template <typename T, Operation op, typename R = T>
+		R reduce(const T arr[], const size_t count)
 		{
-            auto addition = [=]__device__(R x, R y) { return x + y; };
-            auto multiplication = [=]__device__(R x, R y) { return x * y; };
 
-			switch (op)
-			{
-			case Operation::ADD:
-                return reduce<T, decltype(addition), R>(arr, count, addition, 0);
-			case Operation::MUL:
-                break;
-			}
-            return reduce<T, decltype(multiplication), R>(arr, count, multiplication, 1);
+
+            if constexpr (op == Operation::ADD)
+            {
+                auto addition = [=]__device__(R x, R y) { return x + y; };
+                return reduce<T, decltype(addition), R>(arr, count, addition, (R)0);
+            }
+            else if constexpr (op == Operation::MUL)
+            {
+                auto multiplication = [=]__device__(R x, R y) { return x * y; };
+                return reduce<T, decltype(multiplication), R>(arr, count, multiplication, (R)1);
+            }
+            else
+            {
+                return (R)0;
+            }
 		}
 	}

@@ -12,19 +12,19 @@
 namespace BAlg::Algorithms
 {
     template <size_t blockSize, typename F, typename R>
-    __device__ void warpReduce(volatile R* sdata, const size_t tid, F fun) {
-        if (blockSize >= 64) sdata[tid] = fun(sdata[tid], sdata[tid + 32]);
-        if (blockSize >= 32) sdata[tid] = fun(sdata[tid], sdata[tid + 16]);
-        if (blockSize >= 16) sdata[tid] = fun(sdata[tid], sdata[tid + 8]);
-        if (blockSize >= 8) sdata[tid] = fun(sdata[tid], sdata[tid + 4]);
-        if (blockSize >= 4) sdata[tid] = fun(sdata[tid], sdata[tid + 2]);
-        if (blockSize >= 2) sdata[tid] = fun(sdata[tid], sdata[tid + 1]);
+    __device__ void warpReduce(R* sdata, const size_t tid, F fun) {
+        if (blockSize >= 64) {sdata[tid] = fun(sdata[tid], sdata[tid + 32]);__threadfence();}
+        if (blockSize >= 32) {sdata[tid] = fun(sdata[tid], sdata[tid + 16]);__threadfence();}
+        if (blockSize >= 16) {sdata[tid] = fun(sdata[tid], sdata[tid + 8]);__threadfence();}
+        if (blockSize >= 8) {sdata[tid] = fun(sdata[tid], sdata[tid + 4]);__threadfence();}
+        if (blockSize >= 4) {sdata[tid] = fun(sdata[tid], sdata[tid + 2]);__threadfence();}
+        if (blockSize >= 2) {sdata[tid] = fun(sdata[tid], sdata[tid + 1]);__threadfence();}
     }
 
     // source: https://developer.download.nvidia.com/assets/cuda/files/reduction.pdf
     template <typename T, size_t blockSize, typename F, typename R>
     __global__ void reduce(const T* g_idata, R* g_odata, const size_t n, F fun, R identityElement) {
-        alignas(sizeof(R)) extern __shared__ unsigned char sdata_u[];
+        alignas(R) extern __shared__ unsigned char sdata_u[];
         R* sdata = reinterpret_cast<R*>(sdata_u);
 
         size_t tid = threadIdx.x;
@@ -126,12 +126,15 @@ namespace BAlg::Algorithms
         }
         else
         {
-            R returnVal;
+            R* returnVal = (R*)std::malloc(sizeof(R));
 
-            cudaMemcpy(&returnVal, result, sizeof(R), cudaMemcpyDeviceToHost);
+            cudaMemcpy(returnVal, result, sizeof(R), cudaMemcpyDeviceToHost);
             cudaFree(result);
 
-            return returnVal;
+            auto ret = *returnVal;
+
+            std::free(returnVal);
+            return ret;
         }
     }
 }

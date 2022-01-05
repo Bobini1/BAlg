@@ -9,7 +9,7 @@ using namespace BAlg::DataStructures;
 int main()
 {
     using namespace BAlg::DataStructures;
-    NdArray<unsigned char, 20, 20> testArray;
+    NdArray<size_t, 20, 20> testArray;
     size_t actualSum = 0;
     for (size_t i = 0; i < 20; i++)
     {
@@ -19,9 +19,7 @@ int main()
             actualSum += i * j;
         }
     }
-    auto sum = testArray.sum<size_t>();
-
-    std::cout << sum << " " << actualSum << std::endl;
+    auto sum = testArray.sum();
 
     return 0;
 }

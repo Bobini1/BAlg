@@ -32,12 +32,12 @@ namespace BAlg::DataStructures {
 
         template<typename R = T>
         R sum() const {
-            return Algorithms::reduce<T, R>(getMemoryStart(), elements, Algorithms::Operation::ADD);
+            return Algorithms::reduce<T, Algorithms::Operation::ADD, R>(getMemoryStart(), elements);
         }
 
         template<typename R = T>
         R product() const {
-            return Algorithms::reduce<T, R>(getMemoryStart(), elements, Algorithms::Operation::MUL);
+            return Algorithms::reduce<T, Algorithms::Operation::MUL, R>(getMemoryStart(), elements);
         }
     };
 
