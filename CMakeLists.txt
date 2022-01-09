@@ -12,7 +12,7 @@ add_subdirectory(Boost_tests)
 add_executable(BAlg
         NdArray/Algorithms/Algorithms.h
         NdArray/kernel.cu
-        NdArray/NdArrayFlex.h NdArray/NdArrayFlex.cpp NdArray/Shape.h NdArray/Shape.cpp NdArray/NdArrayVariadic.h NdArray/NdArrayVariadic.cpp NdArray/Algorithms/Algorithms.cuh NdArray/Algorithms/Algorithms.cu)
+        NdArray/Shape.h NdArray/Shape.cpp NdArray/NdArrayVariadic.h NdArray/NdArrayVariadic.cpp NdArray/Algorithms/Reduce.cuh NdArray/Algorithms/Reduce.cu NdArray/Algorithms/Map.cuh NdArray/Algorithms/commonFunctionality.cuh NdArray/Algorithms/commonFunctionality.cu NdArray/Algorithms/Map.cu)
 
 set_target_properties(BAlg PROPERTIES
         CUDA_SEPARABLE_COMPILATION ON)

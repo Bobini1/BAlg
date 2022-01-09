@@ -12,7 +12,11 @@
 
 namespace BAlg::DataStructures {
     template<typename T, std::size_t firstDim, std::size_t... dims>
-    struct NdArrayCommonBase {
+    class NdArray;
+
+    template<typename T, std::size_t firstDim, std::size_t... dims>
+    class NdArrayCommonBase {
+    protected:
         static constexpr size_t elements = firstDim * (dims * ... * 1);
 
         virtual T* getMemoryStart() const = 0;
@@ -39,6 +43,14 @@ namespace BAlg::DataStructures {
         R product() const {
             return Algorithms::reduce<T, Algorithms::Operation::MUL, R>(getMemoryStart(), elements);
         }
+
+        template<typename F>
+        NdArray<std::invoke_result_t<F, T>, firstDim, dims...> map(F fun)
+        {
+            NdArray<std::invoke_result_t<F, T>, firstDim, dims...> result;
+            Algorithms::map(getMemoryStart(), result.getMemoryStart(), elements, fun);
+            return result;
+        }
     };
 
     template<typename T, std::size_t firstDim, std::size_t... dims>
@@ -51,6 +63,9 @@ namespace BAlg::DataStructures {
     class NdArrayRefBase : public NdArrayCommonBase<T, firstDim, dims...>
     {
         using Base = NdArrayCommonBase<T, firstDim, dims...>;
+
+        template<typename T_, std::size_t firstDim_, std::size_t... dims_>
+        friend class NdArrayCommonBase;
 
         T* getMemoryStart() const override {
             return memoryStart;
@@ -78,7 +93,7 @@ namespace BAlg::DataStructures {
 
         virtual NdArrayRefBase &operator=(const NdArray<T, firstDim, dims...>& array)
         {
-            if (array.data.get() != memoryStart) {
+            if (array.data != memoryStart) {
                 for (size_t i = 0; i < elements; ++i) {
                     memoryStart[i] = array.data[i];
                 }
@@ -92,13 +107,17 @@ namespace BAlg::DataStructures {
     {
         using Base = NdArrayCommonBase<T, firstDim, dims...>;
 
+        template<typename T_, std::size_t firstDim_, std::size_t... dims_>
+        friend class NdArrayCommonBase;
+
         T* getMemoryStart() const override {
-            return data.get();
+            return data;
         }
     protected:
-        std::shared_ptr<T[]> data;
-        explicit NdArrayBase(T* memoryStart) : data(std::make_unique<T[]>(elements))
+        T* data;
+        explicit NdArrayBase(T* memoryStart)
         {
+            cudaMallocManaged(&data, sizeof(T) * elements);
             for (size_t i = 0; i < elements; ++i)
                 data[i] = memoryStart[i];
         }
@@ -107,11 +126,11 @@ namespace BAlg::DataStructures {
         using Base::size;
         NdArrayBase()
         {
-            data = std::make_unique<T[]>(elements);
+            cudaMallocManaged(&data, sizeof(T) * elements);
         }
         NdArrayBase(const NdArrayBase & array)
         {
-            data = std::make_unique<T[]>(elements);
+            cudaMallocManaged(&data, sizeof(T) * elements);
             for (size_t i = 0; i < elements; ++i)
                 data[i] = array.data[i];
         }
@@ -119,11 +138,14 @@ namespace BAlg::DataStructures {
         {
             data = std::move(array.data);
         }
-
     public:
+        ~NdArrayBase()
+        {
+            cudaFree(data);
+        }
         NdArrayBase& operator=(const NdArrayBase & array) {
             if (this != &array) {
-                data = std::make_unique<T[]>(elements);
+                cudaMallocManaged(&data, sizeof(T) * elements);
                 for (size_t i = 0; i < elements; ++i)
                     data[i] = array.data[i];
             }
@@ -132,7 +154,7 @@ namespace BAlg::DataStructures {
 
         virtual NdArrayBase& operator=(const NdArrayRef<T, firstDim, dims...>& array)
         {
-            if (data.get() != array.memoryStart) {
+            if (data != array.memoryStart) {
                 for (size_t i = 0; i < elements; ++i) {
                     data[i] = array.memoryStart[i];
                 }
@@ -157,6 +179,9 @@ namespace BAlg::DataStructures {
         friend
         class NdArrayRefBase;
 
+        template<typename T_, std::size_t firstDim_, std::size_t... dims_>
+        friend class NdArrayCommonBase;
+
     public:
         NdArray() : Base() {}
 
@@ -167,7 +192,7 @@ namespace BAlg::DataStructures {
         NdArray(NdArray&& array) noexcept : Base(std::move(array)) {}
 
         NdArrayRef<T, dims...> operator[](std::size_t index) {
-            return NdArrayRef<T, dims...>(this->data.get() + index * (dims * ... * 1));
+            return NdArrayRef<T, dims...>(this->data + index * (dims * ... * 1));
         }
 
         NdArray& operator=(const NdArrayRef<T, firstDim, dims...>& array)
@@ -196,6 +221,9 @@ namespace BAlg::DataStructures {
         template<typename, std::size_t, std::size_t...>
         friend
         class NdArrayRef;
+
+        template<typename T_, std::size_t firstDim_, std::size_t... dims_>
+        friend class NdArrayCommonBase;
 
         explicit NdArrayRef(T* memoryStart) : Base(memoryStart) {}
     public:
@@ -231,6 +259,9 @@ namespace BAlg::DataStructures {
         template<typename, std::size_t, std::size_t...>
         friend
         class NdArrayRefBase;
+
+        template<typename T_, std::size_t firstDim_, std::size_t... dims_>
+        friend class NdArrayCommonBase;
 
 
         explicit NdArray(T* memoryStart) : Base(memoryStart) {}
@@ -272,6 +303,9 @@ namespace BAlg::DataStructures {
         template<typename, std::size_t, std::size_t...>
         friend
         class NdArrayBase;
+
+        template<typename T_, std::size_t firstDim_, std::size_t... dims_>
+        friend class NdArrayCommonBase;
 
         explicit NdArrayRef(T *memoryStart) : Base(memoryStart) {}
     public:

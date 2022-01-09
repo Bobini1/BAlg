@@ -3,7 +3,8 @@
 #include <ctgmath>
 #include <cstdio>
 #include <algorithm>
-#include "Algorithms.cuh"
+#include "Reduce.cuh"
+#include "Map.cuh"
 
 namespace BAlg::Algorithms
 	{
@@ -15,26 +16,21 @@ namespace BAlg::Algorithms
 		template <typename T, typename F, typename R = T>
 		R reduce(const T arr[], const size_t count, F fun, R identityElement = 0)
 		{
-			R* result;
             T* input;
-			cudaMalloc(&result, count * sizeof(R));
 			cudaMalloc(&input, count * sizeof(T));
 
 			cudaMemcpy(input, arr, count * sizeof(T), cudaMemcpyHostToDevice);
 
-            auto returnVal = reduceDevice<T, F, R>(input, count, fun, identityElement);
+            auto returnVal = Implementations::reduceDevice<T, F, R>(input, count, fun, identityElement);
 
-			cudaFree(result);
 			cudaFree(input);
 
 			return returnVal;
 		}
 
 		template <typename T, Operation op, typename R = T>
-		R reduce(const T arr[], const size_t count)
+		R reduce(const T arr[], size_t count)
 		{
-
-
             if constexpr (op == Operation::ADD)
             {
                 auto addition = [=]__device__(R x, R y) { return x + y; };
@@ -50,4 +46,13 @@ namespace BAlg::Algorithms
                 return (R)0;
             }
 		}
-	}
+
+
+
+    template <typename T, typename F>
+    void map(const T* arr, std::invoke_result_t<F,T>* out, std::size_t count, F fun)
+    {
+        Implementations::mapDevice(arr, out, count, fun);
+    }
+
+    }

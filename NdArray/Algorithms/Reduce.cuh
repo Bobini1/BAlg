@@ -2,14 +2,16 @@
 // Created by bobini on 30.12.2021.
 //
 
-#ifndef BALG_ALGORITHMS_CUH
-#define BALG_ALGORITHMS_CUH
+#ifndef BALG_REDUCE_CUH
+#define BALG_REDUCE_CUH
 
 #include <ctgmath>
 #include <cstdio>
 #include <algorithm>
+#include <iostream>
+#include "commonFunctionality.cuh"
 
-namespace BAlg::Algorithms
+namespace BAlg::Algorithms::Implementations
 {
     template <size_t blockSize, typename F, typename R>
     __device__ void warpReduce(R* sdata, const size_t tid, F fun) {
@@ -24,6 +26,8 @@ namespace BAlg::Algorithms
     // source: https://developer.download.nvidia.com/assets/cuda/files/reduction.pdf
     template <typename T, size_t blockSize, typename F, typename R>
     __global__ void reduce(const T* g_idata, R* g_odata, const size_t n, F fun, R identityElement) {
+        static_assert(blockSize > 0, "blockSize must be greater than 0");
+
         alignas(R) extern __shared__ unsigned char sdata_u[];
         R* sdata = reinterpret_cast<R*>(sdata_u);
 
@@ -48,14 +52,12 @@ namespace BAlg::Algorithms
     {
         if (count == 0) return identityElement;
 
-        int device;
-        cudaGetDevice(&device);
-        cudaDeviceProp props{};
-        cudaGetDeviceProperties(&props, device);
+        cudaDeviceProp props = getDeviceProperties();
 
         // explanation: http://selkie.macalester.edu/csinparallel/modules/CUDAArchitecture/build/html/2-Findings/Findings.html
         // (bottom of the page)
-        static constexpr double multiplier = 10.0;
+
+        // static constexpr double multiplier = 10.0;
 
         auto threadsTheory = (double)count / std::max(1.0, log2((double)count));
 
@@ -75,7 +77,7 @@ namespace BAlg::Algorithms
 
         if (threadsPerBlock > (size_t)props.maxThreadsPerBlock) throw std::runtime_error("Too many threads per block");
 
-
+        std::cout << "test" << std::endl;
 
         R* result;
         cudaMalloc(&result, dimGrid.x * sizeof(R));
@@ -104,19 +106,7 @@ namespace BAlg::Algorithms
                 reduce<T, 1, F, R> <<< dimGrid, dimBlock, smemSize >>> (in, result, count, fun, identityElement); break;
         }
 
-        cudaError_t cudaStatus;
-        // Check for any errors launching the kernel
-        cudaStatus = cudaGetLastError();
-        if (cudaStatus != cudaSuccess) {
-            fprintf(stderr, "addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
-        }
-
-        // cudaDeviceSynchronize waits for the kernel to finish, and returns
-        // any errors encountered during the launch.
-        cudaStatus = cudaDeviceSynchronize();
-        if (cudaStatus != cudaSuccess) {
-            fprintf(stderr, "cudaDeviceSynchronize returned error code %d after launching addKernel!\n", cudaStatus);
-        }
+        checkErrors();
 
         if (dimGrid.x != 1)
         {
@@ -139,4 +129,4 @@ namespace BAlg::Algorithms
     }
 }
 
-#endif //BALG_ALGORITHMS_CUH
+#endif //BALG_REDUCE_CUH
