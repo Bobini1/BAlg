@@ -16,7 +16,13 @@ namespace BAlg::DataStructures {
     class NdArray;
 
     template<typename T, std::size_t firstDim, std::size_t... dims>
+    class NdArrayRef;
+
+    template<typename T, std::size_t firstDim, std::size_t... dims>
     class NdArrayCommonBase {
+        friend class NdArrayRef<T, firstDim, dims...>;
+        friend class NdArray<T, firstDim, dims...>;
+
     protected:
         static constexpr size_t elements = firstDim * (dims * ... * 1);
 
@@ -57,77 +63,40 @@ namespace BAlg::DataStructures {
     };
 
     template<typename T, std::size_t firstDim, std::size_t... dims>
-    class NdArray;
-
-    template<typename T, std::size_t firstDim, std::size_t... dims>
-    class NdArrayRef;
-
-    template<typename T, std::size_t firstDim, std::size_t... dims>
-    class NdArrayRefBase : public NdArrayCommonBase<T, firstDim, dims...>
-    {
+    class NdArray : public NdArrayCommonBase<T, firstDim, dims...> {
         using Base = NdArrayCommonBase<T, firstDim, dims...>;
-
-        template<typename T_, std::size_t firstDim_, std::size_t... dims_>
-        friend class NdArrayCommonBase;
-
-        T* getMemoryStart() const override {
-            return memoryStart;
-        }
-    protected:
-        T* memoryStart;
         using Base::elements;
         using Base::dimensionCount;
-        using Base::size;
-        NdArrayRefBase(const NdArrayRefBase & array) = default;
-        NdArrayRefBase(NdArrayRefBase && array) noexcept = default;
 
-        explicit NdArrayRefBase(T* memoryStart)
-        {
-            this->memoryStart = memoryStart;
-        }
-
-    public:
-        NdArrayRefBase& operator=(const NdArrayRefBase & array) {
-            if (this != &array) {
-                memoryStart = array.memoryStart;
-            }
-            return *this;
-        }
-
-        virtual NdArrayRefBase &operator=(const NdArray<T, firstDim, dims...>& array)
-        {
-            if (array.data != memoryStart) {
-                for (size_t i = 0; i < elements; ++i) {
-                    memoryStart[i] = array.data[i];
-                }
-            }
-            return *this;
-        }
-    };
-
-    template<typename T, std::size_t firstDim, std::size_t... dims>
-    class NdArrayBase : public NdArrayCommonBase<T, firstDim, dims...>
-    {
-        using Base = NdArrayCommonBase<T, firstDim, dims...>;
+        T* data;
 
         template<typename T_, std::size_t firstDim_, std::size_t... dims_>
         friend class NdArrayCommonBase;
 
-        T* getMemoryStart() const override {
-            return data;
-        }
-    protected:
-        T* data;
-        explicit NdArrayBase(T* memoryStart)
+        explicit NdArray(T* memoryStart)
         {
-            cudaMallocManaged(&data, sizeof(T) * elements);
+            auto error = cudaMallocManaged(&data, sizeof(T) * elements);
+            if (error != cudaSuccess) {
+                if (error == cudaErrorMemoryAllocation) {
+                    throw std::bad_alloc();
+                }
+                else if (error == cudaErrorInvalidValue) {
+                    throw std::invalid_argument("Invalid value");
+                }
+
+                else std::cout << (int)error << std::endl;
+            }
             for (size_t i = 0; i < elements; ++i)
                 data[i] = memoryStart[i];
         }
-        using Base::elements;
-        using Base::dimensionCount;
-        using Base::size;
-        NdArrayBase()
+    protected:
+        T* getMemoryStart() const override {
+            return data;
+        }
+
+    public:
+
+        NdArray()
         {
             auto size = sizeof(T) * elements;
             auto error = cudaMallocManaged(&data, size);
@@ -139,94 +108,55 @@ namespace BAlg::DataStructures {
                     throw std::invalid_argument("Invalid value");
                 }
 
-                else std::cout << (int)error << std::endl;
+                else throw std::runtime_error("Unknown allocation error");
             }
         }
-        NdArrayBase(const NdArrayBase & array)
+
+        ~NdArray()
+        {
+            cudaFree(data);
+        }
+
+        NdArray(const NdArrayCommonBase<T, firstDim, dims...>& array)
         {
             cudaMallocManaged(&data, sizeof(T) * elements);
             for (size_t i = 0; i < elements; ++i)
                 data[i] = array.data[i];
         }
-        NdArrayBase(NdArrayBase && array) noexcept
+
+        NdArray(NdArray&& array) noexcept
         {
-            data = std::move(array.data);
-        }
-    public:
-        ~NdArrayBase()
-        {
-            cudaFree(data);
-        }
-        NdArrayBase& operator=(const NdArrayBase & array) {
-            if (this != &array) {
-                cudaMallocManaged(&data, sizeof(T) * elements);
-                for (size_t i = 0; i < elements; ++i)
-                    data[i] = array.data[i];
-            }
-            return *this;
+            data = array.data;
+            array.data = nullptr;
         }
 
-        virtual NdArrayBase& operator=(const NdArrayRef<T, firstDim, dims...>& array)
+        decltype(auto) operator[](size_t index)
         {
-            if (data != array.memoryStart) {
-                for (size_t i = 0; i < elements; ++i) {
-                    data[i] = array.memoryStart[i];
+            if constexpr(sizeof...(dims) == 0) {
+                return data[index];
+            }
+            else {
+                return NdArrayRef<T, dims...>(data + index * firstDim);
+            }
+        }
+
+        NdArray& operator=(const NdArrayCommonBase<T, firstDim, dims...>& array) {
+            if (this->getMemoryStart() != array.getMemoryStart()) {
+                for (size_t i = 0; i < elements; ++i)
+                {
+                    auto memory = array.getMemoryStart();
+                    data[i] = memory[i];
                 }
             }
             return *this;
         }
     };
 
-
-
-    template<typename, std::size_t, std::size_t...>
-    class NdArrayRef;
-
     template<typename T, std::size_t firstDim, std::size_t... dims>
-    struct NdArray : public NdArrayBase<T, firstDim, dims...> {
-        using Base = NdArrayBase<T, firstDim, dims...>;
+    class NdArrayRef : public NdArrayCommonBase<T, firstDim, dims...> {
+        using Base = NdArrayCommonBase<T, firstDim, dims...>;
         using Base::elements;
         using Base::dimensionCount;
-        using Base::size;
-
-        template<typename, std::size_t, std::size_t...>
-        friend
-        class NdArrayRefBase;
-
-        template<typename T_, std::size_t firstDim_, std::size_t... dims_>
-        friend class NdArrayCommonBase;
-
-    public:
-        NdArray() : Base() {}
-
-        ~NdArray() = default;
-
-        NdArray(const NdArray& array) : Base(array) {}
-
-        NdArray(NdArray&& array) noexcept : Base(std::move(array)) {}
-
-        NdArrayRef<T, dims...> operator[](std::size_t index) {
-            return NdArrayRef<T, dims...>(this->data + index * (dims * ... * 1));
-        }
-
-        NdArray& operator=(const NdArrayRef<T, firstDim, dims...>& array)
-        {
-            Base::operator=(array);
-            return *this;
-        }
-    };
-
-    template<typename T, std::size_t firstDim, std::size_t... dims>
-    class NdArrayRef : public NdArrayRefBase<T, firstDim, dims...> {
-        using Base = NdArrayRefBase<T, firstDim, dims...>;
-        using Base::elements;
-        using Base::dimensionCount;
-        using Base::size;
-        using Base::memoryStart;
-
-        template<typename, std::size_t, std::size_t...>
-        friend
-        class NdArrayBase;
 
         template<typename, std::size_t, std::size_t...>
         friend
@@ -236,111 +166,52 @@ namespace BAlg::DataStructures {
         friend
         class NdArrayRef;
 
-        template<typename T_, std::size_t firstDim_, std::size_t... dims_>
-        friend class NdArrayCommonBase;
+        T* memoryStart;
 
-        explicit NdArrayRef(T* memoryStart) : Base(memoryStart) {}
+        explicit NdArrayRef(T* memoryStart)
+        {
+            this->memoryStart = memoryStart;
+        }
+
+    protected:
+        T* getMemoryStart() const override {
+            return memoryStart;
+        }
     public:
+        decltype(auto) operator[](size_t index)
+        {
+            if constexpr(sizeof...(dims) == 0) {
+                return memoryStart[index];
+            }
+            else {
+                return NdArrayRef<T, dims...>(memoryStart + index * firstDim);
+            }
+        }
+
         ~NdArrayRef() = default;
 
-        NdArrayRef(const NdArrayRef& array) : Base(array) {}
-
-        NdArrayRef(NdArrayRef&& array) noexcept : Base(std::move(array)) {}
-
-        NdArrayRef<T, dims...>& operator[](std::size_t index) {
-            if (index >= firstDim) {
-                throw std::out_of_range("Index out of range");
-            }
-            return NdArrayRef<T, dims...>(memoryStart + index * (dims * ... * 1));
+        NdArrayRef(const NdArrayRef& array)
+        {
+            this->memoryStart = array.memoryStart;
         }
 
+        NdArrayRef& operator=(const NdArrayRef& array) {
+            if (this->getMemoryStart() != array.getMemoryStart()) {
+                memoryStart = array.memoryStart;
+            }
+            return *this;
+        }
 
-        NdArrayRef& operator=(const NdArray<T, firstDim, dims...>& array)
+        NdArrayRef &operator=(const NdArray<T, firstDim, dims...>& array)
         {
-            Base::operator=(array);
+            if (array.data != memoryStart) {
+                for (size_t i = 0; i < elements; ++i) {
+                    memoryStart[i] = array.data[i];
+                }
+            }
             return *this;
         }
     };
-
-    template<typename T, std::size_t firstDim>
-    class NdArray<T, firstDim> : public NdArrayBase<T, firstDim> {
-        using Base = NdArrayBase<T, firstDim>;
-        using Base::elements;
-        using Base::dimensionCount;
-        using Base::size;
-        using Base::data;
-
-        template<typename, std::size_t, std::size_t...>
-        friend
-        class NdArrayRefBase;
-
-        template<typename T_, std::size_t firstDim_, std::size_t... dims_>
-        friend class NdArrayCommonBase;
-
-
-        explicit NdArray(T* memoryStart) : Base(memoryStart) {}
-    public:
-        NdArray() : Base() {}
-
-        ~NdArray() = default;
-
-        NdArray(const NdArray& array) : Base(array) {}
-
-        NdArray(NdArray&& array) noexcept : Base(std::move(array)) {}
-
-        T& operator[](std::size_t index) {
-            if (index >= firstDim) {
-                throw std::out_of_range("Index out of range");
-            }
-            return data[index];
-        }
-
-        NdArray& operator=(const NdArrayRef<T, firstDim>& array)
-        {
-            Base::operator=(array);
-            return *this;
-        }
-    };
-
-    template<typename T, std::size_t firstDim>
-    class NdArrayRef<T, firstDim> : public NdArrayRefBase<T, firstDim> {
-        using Base = NdArrayRefBase<T, firstDim>;
-        using Base::elements;
-        using Base::dimensionCount;
-        using Base::size;
-        using Base::memoryStart;
-
-        template<typename, std::size_t, std::size_t...>
-        friend
-        class NdArray;
-
-        template<typename, std::size_t, std::size_t...>
-        friend
-        class NdArrayBase;
-
-        template<typename T_, std::size_t firstDim_, std::size_t... dims_>
-        friend class NdArrayCommonBase;
-
-        explicit NdArrayRef(T *memoryStart) : Base(memoryStart) {}
-    public:
-        NdArrayRef(const NdArrayRef & array) : Base(array) {}
-
-        NdArrayRef(NdArrayRef && array) noexcept : Base(std::move(array)) {}
-
-        T& operator[](std::size_t index) const {
-            if (index >= firstDim) {
-                throw std::out_of_range("Index out of range");
-            }
-            return *(memoryStart + index);
-        }
-
-        NdArrayRef& operator=(const NdArray<T, firstDim>& array)
-        {
-            Base::operator=(array);
-            return *this;
-        }
-    };
-
 
 }
 #endif //BALG_NDARRAYVARIADIC_H
