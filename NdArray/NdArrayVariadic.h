@@ -60,6 +60,16 @@ namespace BAlg::DataStructures {
             Algorithms::map(getMemoryStart(), result.getMemoryStart(), elements, fun);
             return result;
         }
+
+        decltype(auto) operator[](size_t index)
+        {
+            if constexpr(sizeof...(dims) == 0) {
+                return getMemoryStart()[index];
+            }
+            else {
+                return NdArrayRef<T, dims...>(getMemoryStart() + index * firstDim);
+            }
+        }
     };
 
     template<typename T, std::size_t firstDim, std::size_t... dims>
@@ -70,7 +80,7 @@ namespace BAlg::DataStructures {
 
         T* data;
 
-        template<typename T_, std::size_t firstDim_, std::size_t... dims_>
+        template<typename, std::size_t, std::size_t...>
         friend class NdArrayCommonBase;
 
         explicit NdArray(T* memoryStart)
@@ -130,16 +140,6 @@ namespace BAlg::DataStructures {
             array.data = nullptr;
         }
 
-        decltype(auto) operator[](size_t index)
-        {
-            if constexpr(sizeof...(dims) == 0) {
-                return data[index];
-            }
-            else {
-                return NdArrayRef<T, dims...>(data + index * firstDim);
-            }
-        }
-
         NdArray& operator=(const NdArrayCommonBase<T, firstDim, dims...>& array) {
             if (this->getMemoryStart() != array.getMemoryStart()) {
                 for (size_t i = 0; i < elements; ++i)
@@ -160,11 +160,7 @@ namespace BAlg::DataStructures {
 
         template<typename, std::size_t, std::size_t...>
         friend
-        class NdArray;
-
-        template<typename, std::size_t, std::size_t...>
-        friend
-        class NdArrayRef;
+        class NdArrayCommonBase;
 
         T* memoryStart;
 
@@ -178,16 +174,6 @@ namespace BAlg::DataStructures {
             return memoryStart;
         }
     public:
-        decltype(auto) operator[](size_t index)
-        {
-            if constexpr(sizeof...(dims) == 0) {
-                return memoryStart[index];
-            }
-            else {
-                return NdArrayRef<T, dims...>(memoryStart + index * firstDim);
-            }
-        }
-
         ~NdArrayRef() = default;
 
         NdArrayRef(const NdArrayRef& array)
