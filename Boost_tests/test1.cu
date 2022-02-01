@@ -237,7 +237,7 @@ BOOST_AUTO_TEST_CASE(NdArrayMap)
             testArray[i][j] = i + j;
         }
     }
-    NdArray<size_t, 20, 20> mappedArray = testArray.map([]__device__(size_t i) { return i * 2; });
+    auto mappedArray = testArray.map([]__device__ __host__(size_t i)-> size_t { return i * 2; });
     for (size_t i = 0; i < 20; i++)
     {
         for (size_t j = 0; j < 20; j++)
@@ -251,25 +251,6 @@ BOOST_AUTO_TEST_CASE(NdArrayMap)
 
 
 BOOST_AUTO_TEST_SUITE_END()
-
-/**
-
-BOOST_AUTO_TEST_CASE(sumOfElementsStressTest2)
-{
-    using namespace BAlg::DataStructures;
-    NdArray<size_t, 2000, 2000> testArray;
-    size_t actualSum = 0;
-    for (size_t i = 0; i < 2000; i++)
-    {
-        for (size_t j = 0; j < 2000; j++)
-        {
-            testArray[i][j] = i * j;
-            actualSum += testArray[i][j];
-        }
-    }
-    auto sum = testArray.sum();
-    BOOST_CHECK_EQUAL(sum, actualSum);
-}
 
 
 BOOST_AUTO_TEST_CASE(CustomReturnTypeMultiprecision)
@@ -289,4 +270,20 @@ BOOST_AUTO_TEST_CASE(CustomReturnTypeMultiprecision)
     BOOST_CHECK_EQUAL(sum, actualSum);
 }
 
-**/
+
+BOOST_AUTO_TEST_CASE(sumOfElementsStressTest2)
+{
+    using namespace BAlg::DataStructures;
+    NdArray<size_t, 2000, 2000> testArray;
+    size_t actualSum = 0;
+    for (size_t i = 0; i < 2000; i++)
+    {
+        for (size_t j = 0; j < 2000; j++)
+        {
+            testArray[i][j] = i * j;
+            actualSum += testArray[i][j];
+        }
+    }
+    auto sum = testArray.sum();
+    BOOST_CHECK_EQUAL(sum, actualSum);
+}

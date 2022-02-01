@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <array>
 #include <memory>
+#include <cuda/std/type_traits>
 #include "Algorithms/Algorithms.h"
 
 namespace BAlg::DataStructures {
@@ -20,6 +21,8 @@ namespace BAlg::DataStructures {
         static constexpr size_t elements = firstDim * (dims * ... * 1);
 
         virtual T* getMemoryStart() const = 0;
+
+        static constexpr size_t numDims = sizeof...(dims);
 
     public:
         [[nodiscard]] constexpr std::size_t elementCount() const {
@@ -45,9 +48,9 @@ namespace BAlg::DataStructures {
         }
 
         template<typename F>
-        NdArray<std::invoke_result_t<F, T>, firstDim, dims...> map(F fun)
+        NdArray<cuda::std::invoke_result_t<F, T>, firstDim, dims...> map(F fun)
         {
-            NdArray<std::invoke_result_t<F, T>, firstDim, dims...> result;
+            NdArray<cuda::std::invoke_result_t<F, T>, firstDim, dims...> result;
             Algorithms::map(getMemoryStart(), result.getMemoryStart(), elements, fun);
             return result;
         }
@@ -126,7 +129,18 @@ namespace BAlg::DataStructures {
         using Base::size;
         NdArrayBase()
         {
-            cudaMallocManaged(&data, sizeof(T) * elements);
+            auto size = sizeof(T) * elements;
+            auto error = cudaMallocManaged(&data, size);
+            if (error != cudaSuccess) {
+                if (error == cudaErrorMemoryAllocation) {
+                    throw std::bad_alloc();
+                }
+                else if (error == cudaErrorInvalidValue) {
+                    throw std::invalid_argument("Invalid value");
+                }
+
+                else std::cout << (int)error << std::endl;
+            }
         }
         NdArrayBase(const NdArrayBase & array)
         {

@@ -6,6 +6,7 @@
 #define BALG_MAP_CUH
 
 #include "commonFunctionality.cuh"
+#include <cuda/std/type_traits>
 
 namespace BAlg::Algorithms::Implementations {
 
@@ -25,7 +26,9 @@ namespace BAlg::Algorithms::Implementations {
         dim3 grid(ceil((double)size / (double)blockSize));
         dim3 block(blockSize);
         BAlg::Algorithms::Implementations::map<<<grid, block>>>(in, out, size, fun);
-        cudaDeviceSynchronize();
+        auto zzz = cudaDeviceSynchronize();
+        if (zzz != cudaSuccess)
+            throw std::runtime_error("mapDevice: cudaDeviceSynchronize failed");
         checkErrors();
     }
 }
