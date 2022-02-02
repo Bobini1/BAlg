@@ -177,6 +177,7 @@ BOOST_AUTO_TEST_CASE(CustomReturnType)
 struct B
 {
     constexpr explicit B(size_t i) : i(i) {}
+    constexpr explicit B() : i(0) {}
     size_t i;
     constexpr B operator+(const B& other) const
     {
