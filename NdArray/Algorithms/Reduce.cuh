@@ -15,12 +15,12 @@ namespace BAlg::Algorithms::Implementations
 {
     template <size_t blockSize, typename F, typename R>
     __device__ void warpReduce(R* sdata, const size_t tid, F fun) {
-        if (blockSize >= 64) {sdata[tid] = fun(sdata[tid], sdata[tid + 32]);__threadfence();}
-        if (blockSize >= 32) {sdata[tid] = fun(sdata[tid], sdata[tid + 16]);__threadfence();}
-        if (blockSize >= 16) {sdata[tid] = fun(sdata[tid], sdata[tid + 8]);__threadfence();}
-        if (blockSize >= 8) {sdata[tid] = fun(sdata[tid], sdata[tid + 4]);__threadfence();}
-        if (blockSize >= 4) {sdata[tid] = fun(sdata[tid], sdata[tid + 2]);__threadfence();}
-        if (blockSize >= 2) {sdata[tid] = fun(sdata[tid], sdata[tid + 1]);__threadfence();}
+        if (blockSize >= 64) {sdata[tid] = fun(sdata[tid], sdata[tid + 32]);__threadfence_block();}
+        if (blockSize >= 32) {sdata[tid] = fun(sdata[tid], sdata[tid + 16]);__threadfence_block();}
+        if (blockSize >= 16) {sdata[tid] = fun(sdata[tid], sdata[tid + 8]);__threadfence_block();}
+        if (blockSize >= 8) {sdata[tid] = fun(sdata[tid], sdata[tid + 4]);__threadfence_block();}
+        if (blockSize >= 4) {sdata[tid] = fun(sdata[tid], sdata[tid + 2]);__threadfence_block();}
+        if (blockSize >= 2) {sdata[tid] = fun(sdata[tid], sdata[tid + 1]);__threadfence_block();}
     }
 
     // source: https://developer.download.nvidia.com/assets/cuda/files/reduction.pdf
@@ -37,9 +37,9 @@ namespace BAlg::Algorithms::Implementations
         sdata[tid] = identityElement;
         while (i < n) { sdata[tid] = fun(sdata[tid], fun((R)g_idata[i], (R)g_idata[i + blockSize])); i += gridSize; }
         __syncthreads();
-        if (blockSize >= 512) { if (tid < 256) { sdata[tid] = fun(sdata[tid], sdata[tid + 256]); } __syncthreads(); }
-        if (blockSize >= 256) { if (tid < 128) { sdata[tid] = fun(sdata[tid], sdata[tid + 128]); } __syncthreads(); }
-        if (blockSize >= 128) { if (tid < 64) { sdata[tid] = fun(sdata[tid], sdata[tid + 64]); } __syncthreads(); }
+        if (blockSize >= 512) { sdata[tid] = fun(sdata[tid], sdata[tid + 256]);  __syncthreads(); }
+        if (blockSize >= 256) { sdata[tid] = fun(sdata[tid], sdata[tid + 128]);  __syncthreads(); }
+        if (blockSize >= 128) { sdata[tid] = fun(sdata[tid], sdata[tid + 64]);  __syncthreads(); }
         if (tid < 32) warpReduce<blockSize, F, R> (sdata, tid, fun);
         if (tid == 0)
         {

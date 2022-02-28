@@ -10,14 +10,14 @@ void BAlg::Algorithms::Implementations::checkErrors()
     // Check for any errors launching the kernel
     cudaStatus = cudaGetLastError();
     if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
+        throw std::runtime_error(std::string("cudaDeviceSynchronize returned error code after launching addKernel: \n") + cudaGetErrorString(cudaStatus));
     }
 
     // cudaDeviceSynchronize waits for the kernel to finish, and returns
     // any errors encountered during the launch.
     cudaStatus = cudaDeviceSynchronize();
     if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaDeviceSynchronize returned error code %d after launching addKernel!\n", cudaStatus);
+        throw std::runtime_error(std::string("cudaDeviceSynchronize returned error code after launching addKernel: \n") + cudaGetErrorString(cudaStatus));
     }
 }
 

@@ -185,12 +185,12 @@ namespace BAlg::DataStructures {
          * @tparam firstDim the size of the first dimension of the array.
          * @tparam dims the sizes of the remaining dimensions of the array.
          */
-        explicit NdArray(bool initializeElements = true)
+        explicit NdArray()
         {
             static constexpr auto size = sizeof(T) * elements;
             auto error = cudaMallocManaged(&data, size);
             if (error != cudaSuccess) throw std::runtime_error(cudaGetErrorString(error));
-            if (initializeElements) data = new (data) T[elements]();
+            if constexpr (!cuda::std::is_pod_v<T>) data = new (data) T[elements]();
         }
 
         ~NdArray()

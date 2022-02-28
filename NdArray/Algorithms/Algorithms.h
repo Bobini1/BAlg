@@ -14,14 +14,8 @@ namespace BAlg::Algorithms {
 
     template<typename T, typename F, typename R = T>
     R reduce(const T arr[], const size_t count, F fun, R identityElement = 0) {
-        T *input;
-        cudaMalloc(&input, count * sizeof(T));
 
-        cudaMemcpy(input, arr, count * sizeof(T), cudaMemcpyHostToDevice);
-
-        auto returnVal = Implementations::reduceDevice<T, F, R>(input, count, fun, identityElement);
-
-        cudaFree(input);
+        auto returnVal = Implementations::reduceDevice<T, F, R>(arr, count, fun, identityElement);
 
         return returnVal;
     }
